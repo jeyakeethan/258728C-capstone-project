@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+data/raw/**
+!data/raw/unisolar/.gitkeep
+
+data/processed/*.csv
+models/*
+!models/.gitkeep
+
+reports/figures/*
+!reports/figures/.gitkeep
+
+.venvScriptsactivate.txt
