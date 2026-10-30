@@ -81,8 +81,8 @@ This must be chronological. Daily `solar - demand` arithmetic is not sufficient 
 Place UNISOLAR files in `data/raw/unisolar/`, then run:
 
 ```bash
-python scripts/prepare_unisolar.py
-python scripts/train_unisolar_weather_model.py
+python workflows/prepare_unisolar.py
+python workflows/train_unisolar_weather_model.py
 ```
 
 The generalized target is capacity-normalized solar output:
@@ -103,14 +103,14 @@ The UNISOLAR training script performs a small, explicit and reproducible HGB hyp
 The project contains a reproducible **synthetic historical site-demand dataset** with time-of-day, weekday/weekend, holiday, seasonal and small random effects. Generate and train it with:
 
 ```bash
-python scripts/generate_synthetic_demand.py
-python scripts/train_demand_model.py
+python workflows/generate_synthetic_demand.py
+python workflows/train_demand_model.py
 ```
 
 Generate the synthetic solar trace used only for the dashboard's simulated present-power display:
 
 ```bash
-python scripts/generate_demo_data.py
+python workflows/generate_demo_data.py
 ```
 
 This synthetic trace is not a solar forecast model and must not be used as UNISOLAR research data. The dashboard requires the trained UNISOLAR model.

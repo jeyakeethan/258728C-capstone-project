@@ -96,7 +96,7 @@ except Exception as exc:
 location_name = get_location_name(float(latitude), float(longitude))
 if not SOLAR_MODEL_PATH.exists() or not DEMAND_MODEL_PATH.exists():
     st.error("Forecasting models are not available. Train the solar and demand models first.")
-    st.code("python scripts/generate_synthetic_demand.py\npython scripts/train_demand_model.py\npython scripts/prepare_unisolar.py\npython scripts/train_unisolar_weather_model.py")
+    st.code("python workflows/generate_synthetic_demand.py\npython workflows/train_demand_model.py\npython workflows/prepare_unisolar.py\npython workflows/train_unisolar_weather_model.py")
     st.stop()
 
 try:
@@ -105,7 +105,7 @@ try:
 except Exception as exc:
     st.error(f"Could not load forecasting models: {exc}")
     st.info("If the joblib files were created with another scikit-learn version, retrain both models in the current environment.")
-    st.code("python scripts/generate_synthetic_demand.py\npython scripts/train_demand_model.py\npython scripts/prepare_unisolar.py\npython scripts/train_unisolar_weather_model.py")
+    st.code("python workflows/generate_synthetic_demand.py\npython workflows/train_demand_model.py\npython workflows/prepare_unisolar.py\npython workflows/train_unisolar_weather_model.py")
     st.stop()
 
 if not SYNTHETIC_SOLAR_PATH.exists() or not SYNTHETIC_DEMAND_PATH.exists():
@@ -114,17 +114,13 @@ if not SYNTHETIC_SOLAR_PATH.exists() or not SYNTHETIC_DEMAND_PATH.exists():
 solar_sim_data = get_simulation_data(str(SYNTHETIC_SOLAR_PATH))
 demand_sim_data = get_simulation_data(str(SYNTHETIC_DEMAND_PATH))
 
-# ---- Synchronized dashboard ----
 @st.fragment(run_every=5.0)
 def render_synchronized_dashboard():
-    # Weather retrieval is cached separately; the complete dashboard calculation
-    # still reruns on every 5-second heartbeat.
     live_weather = get_weather(float(latitude), float(longitude))
     current_payload = live_weather.attrs.get("current", {}) or {}
     utc_offset_seconds = float(live_weather.attrs.get("utc_offset_seconds") or 0.0)
     local_now = (pd.Timestamp.now(tz="UTC") + pd.Timedelta(seconds=utc_offset_seconds)).tz_localize(None)
 
-    # ---- Expected solar forecast (main ML outcome) ----
     solar_model = solar_bundle["model"]
     solar_features = solar_bundle["feature_columns"]
     frame = add_time_features(live_weather.copy())
@@ -138,7 +134,6 @@ def render_synchronized_dashboard():
     frame["expected_ratio"] = ratio
     frame["expected_power_mw"] = ratio * float(site_capacity_mw)
 
-    # ---- Expected demand forecast ----
     demand_model = demand_bundle["model"]
     demand_features = demand_bundle["feature_columns"]
     demand_frame = future_demand_features(frame["timestamp"])
@@ -153,10 +148,6 @@ def render_synchronized_dashboard():
     nearest_idx = (frame["timestamp"] - current_hour).abs().idxmin()
     current = frame.loc[nearest_idx]
 
-    # ---- Present-state heartbeat ----
-    # Solar remains a clearly labelled simulation where inverter telemetry is
-    # unavailable. Site demand is NOT replayed from the historical dataset:
-    # the trained demand model is evaluated for this exact current timestamp.
     simulated_solar_mw, _ = synthetic_live_values(
         solar_sim_data, demand_sim_data, local_now, float(site_capacity_mw)
     )
@@ -207,7 +198,6 @@ def render_synchronized_dashboard():
     st.title("Solar & Fuel Readiness")
     st.caption("Forecast expected solar generation, combine it with demand and battery state, and warn in advance when fuel-backed electrical energy is required.")
 
-    # ---- Four-card live row ----
     expected_now = float(current["expected_power_mw"])
     simulated_solar_pct = 100.0 * simulated_solar_mw / float(site_capacity_mw) if site_capacity_mw > 0 else 0.0
     expected_pct = 100.0 * expected_now / float(site_capacity_mw) if site_capacity_mw > 0 else 0.0
@@ -230,7 +220,6 @@ def render_synchronized_dashboard():
         st.markdown('<div class="small-note"><b>(ML forecast)</b></div>', unsafe_allow_html=True)
         st.caption(f"{expected_pct:.1f}% of installed capacity")
 
-    # ---- Today: recalculate from synchronized estimated battery state ----
     today = local_now.date()
     today_frame = frame[(frame["date"] == today) & (frame["timestamp"] >= current_hour)].copy()
     remaining_first_hour = max(0.0, min(1.0, 1.0 - (local_now.minute * 60 + local_now.second) / 3600.0))
@@ -271,12 +260,8 @@ def render_synchronized_dashboard():
             st.dataframe(hourly, use_container_width=True, hide_index=True)
             st.caption("Battery reserve is the energy available at the beginning of each forecast interval. End-state is calculated internally.")
 
-    # ---- Seven future days: hourly calculation internally, daily presentation only ----
     future_dates = sorted(d for d in frame["date"].unique() if d > today)[:7]
     rows = []
-    # Carry the forecast battery state continuously across midnight. Tomorrow
-    # begins with today's forecast end-state; every later day begins with the
-    # preceding day's forecast end-state.
     carry_battery_mwh = (
         float(today_sim["battery_end_mwh"].iloc[-1])
         if not today_sim.empty else float(estimated_battery_mwh)
@@ -313,9 +298,6 @@ def render_synchronized_dashboard():
             fuel = r["fuel_required_mwh"]
             readiness = f"⚠ PREPARE {fuel:.3f} MWh" if fuel > 0.5 else "✓ No fuel-backed energy forecast"
 
-            # Keep the daily result visible at all times. Do not place these
-            # metrics inside the collapsible detail because the 5-second
-            # fragment heartbeat rerenders the dashboard.
             st.markdown(f"#### {r['label']} · {r['date']} — {readiness}")
             daily_cols = st.columns(5)
             daily_cols[0].metric("Expected solar energy", f"{r['solar_energy_mwh']:.3f} MWh")
@@ -324,10 +306,6 @@ def render_synchronized_dashboard():
             daily_cols[3].metric("End battery", f"{r['end_battery_mwh']:.3f} MWh")
             daily_cols[4].metric("Fuel-backed energy", f"{fuel:.3f} MWh")
 
-            # st.expander loses its client-side open/closed state when this
-            # fragment reruns every five seconds. A keyed toggle stores the
-            # state in Streamlit session_state, so an opened day's evidence
-            # stays visible across heartbeat reruns until the user closes it.
             day_key = pd.to_datetime(r["date"], dayfirst=True).strftime("%Y%m%d")
             show_hourly = st.toggle(
                 "Show hourly weather & calculation evidence",
@@ -384,7 +362,7 @@ The system does **not** estimate litres of fuel. Battery efficiency, degradation
 
     st.caption("Forecast assumptions: deployment cloud cover proxies the UNISOLAR cloud variable; forecast weather differs from observed training weather; geographical transfer beyond UNISOLAR sites requires separate validation.")
 
-    # Training evidence is generated by scripts/train_unisolar_weather_model.py.
+    # Training evidence is generated by workflows/train_unisolar_weather_model.py.
     # Keep it at the very end of the dashboard and collapsed by default.
     with st.expander("UNISOLAR end-of-dataset model fit", expanded=False):
         end_fit_plot = ROOT / "models" / "unisolar_end_fit.png"
@@ -406,7 +384,7 @@ The system does **not** estimate litres of fuel. Battery efficiency, degradation
                 st.line_chart(fit_chart, use_container_width=True)
 
         if not end_fit_plot.exists() and not end_fit_csv.exists():
-            st.info("End-of-dataset fit evidence is not available yet. Run python scripts/train_unisolar_weather_model.py to generate it.")
+            st.info("End-of-dataset fit evidence is not available yet. Run python workflows/train_unisolar_weather_model.py to generate it.")
 
 
 render_synchronized_dashboard()

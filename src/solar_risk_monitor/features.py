@@ -12,8 +12,6 @@ DATASET_EXOGENOUS = {
     "demo": ["irradiance", "cloud_cover", "temperature", "humidity"],
 }
 
-
-
 def infer_step_hours(df: pd.DataFrame) -> float:
     """Infer the median sampling interval in hours from timestamp."""
     ts = pd.to_datetime(df["timestamp"], errors="coerce").dropna().sort_values()
@@ -24,15 +22,11 @@ def infer_step_hours(df: pd.DataFrame) -> float:
         return 1.0
     return float(delta.total_seconds() / 3600.0)
 
-
-
 def hours_to_rows(hours: float, step_hours: float) -> int:
     """Convert a semantic duration in hours into dataset rows."""
     if step_hours <= 0:
         step_hours = 1.0
     return max(1, int(round(float(hours) / step_hours)))
-
-
 
 def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     out = df.copy()
@@ -46,8 +40,6 @@ def add_time_features(df: pd.DataFrame) -> pd.DataFrame:
     out["doy_sin"] = np.sin(2 * np.pi * out["day_of_year"] / 365.25)
     out["doy_cos"] = np.cos(2 * np.pi * out["day_of_year"] / 365.25)
     return out
-
-
 
 def add_lag_features(
     df: pd.DataFrame,
@@ -71,8 +63,6 @@ def add_lag_features(
 
     return out
 
-
-
 def engineered_history_columns(
     target="solar_power",
     lags=(1, 2, 3, 6, 12, 24),
@@ -83,8 +73,6 @@ def engineered_history_columns(
         cols.extend([f"{target}_roll_mean_{h}", f"{target}_roll_std_{h}"])
     return cols
 
-
-
 def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
     """Build time/history features while preserving missing exogenous weather values."""
     out = add_time_features(df)
@@ -92,32 +80,25 @@ def build_feature_frame(df: pd.DataFrame) -> pd.DataFrame:
     required = ["timestamp", "solar_power"] + engineered_history_columns()
     return out.dropna(subset=required).reset_index(drop=True)
 
-
-
 def _base_exclusions():
     return {
         "timestamp", "solar_power", "solar_capacity_ratio", "site_capacity_kwp",
         "latitude", "longitude", "site_id", "campus_id", "ZONEID",
     }
 
-
-
 def numeric_feature_columns(df: pd.DataFrame):
-    """Generic leakage-safe numeric columns; retained for compatibility/tests."""
+    """Return numeric predictors while excluding identifiers and targets."""
     excluded = _base_exclusions()
     return [
         c for c in df.columns
         if c not in excluded and pd.api.types.is_numeric_dtype(df[c])
     ]
 
-
-
 def model_feature_columns(df: pd.DataFrame, dataset_name: str):
     """Return explicit leakage-safe features for supported solar datasets.
 
-    The active capstone path is UNISOLAR. This compatibility helper retains
-    optional history features for offline experiments, while the deployed
-    weather-only model uses ``weather_only_feature_columns`` below.
+    UNISOLAR models use weather and time features; history features remain
+    available for experiments based on recorded solar output.
     """
     name = (dataset_name or "").strip().lower().replace(" ", "_")
     allowed = DATASET_EXOGENOUS.get(name)
@@ -133,12 +114,8 @@ def model_feature_columns(df: pd.DataFrame, dataset_name: str):
         c for c in selected if pd.api.types.is_numeric_dtype(df[c])
     ))
 
-
-
 def required_history_rows(df: pd.DataFrame, max_history_hours: float = 24.0) -> int:
     return hours_to_rows(max_history_hours, infer_step_hours(df))
-
-
 def weather_only_feature_columns(df: pd.DataFrame):
     """UNISOLAR deployment features available from a weather forecast API.
 

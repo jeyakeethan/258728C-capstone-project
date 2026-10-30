@@ -68,14 +68,11 @@ if not features:
 
 train, val, test = time_split(frame)
 
-# Baseline: no hyperparameter tuning.
 linear_model = make_model("linear")
 linear_model.fit(train[features], train["normalized_solar"])
 linear_result = evaluate(linear_model, val[features], val["normalized_solar"], "linear")
 print(f"VALIDATION LINEAR: {json.dumps(linear_result.__dict__, indent=2)}")
 
-# Small, auditable HGB search. The chronological validation partition is used
-# for tuning; the final chronological test partition remains untouched.
 hgb_grid = [
     {"learning_rate": lr, "max_iter": it, "max_leaf_nodes": leaves,
      "min_samples_leaf": min_leaf, "l2_regularization": l2}
@@ -106,8 +103,6 @@ model.fit(train_val[features], train_val["normalized_solar"])
 test_result = evaluate(model, test[features], test["normalized_solar"], best.model_name)
 site_results = per_site_metrics(model, test, features)
 
-# End-of-dataset fit evidence. This uses only the very end of the untouched
-# chronological test partition and does not affect model selection or tuning.
 end_cutoff = pd.to_datetime(test["timestamp"]).max() - pd.Timedelta(days=7)
 end_fit = test.loc[pd.to_datetime(test["timestamp"]) >= end_cutoff].copy()
 end_fit["predicted_generation_proportion"] = model.predict(end_fit[features])
@@ -118,7 +113,6 @@ end_fit_metrics = metrics_from_predictions(
     best.model_name,
 )
 
-# Preserve row-level evidence (including site id where available).
 evidence_columns = ["timestamp"]
 if "site_id" in end_fit.columns:
     evidence_columns.append("site_id")
@@ -126,8 +120,6 @@ evidence_columns += ["actual_generation_proportion", "predicted_generation_propo
 end_fit_csv = Path(args.out).with_name("unisolar_end_fit.csv")
 end_fit[evidence_columns].to_csv(end_fit_csv, index=False)
 
-# Multiple UNISOLAR sites share timestamps. Plot the mean generation proportion
-# at each timestamp so the final-period actual-vs-predicted fit remains readable.
 plot_frame = (
     end_fit.groupby("timestamp", as_index=False)[
         ["actual_generation_proportion", "predicted_generation_proportion"]
