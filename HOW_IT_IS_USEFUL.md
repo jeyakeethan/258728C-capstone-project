@@ -89,6 +89,24 @@ Weather forecast + time features + installed capacity
                  Solar risk alert
 ```
 
+## Weather data sources
+
+For deployment and future forecasting, the application requests hourly weather forecasts from the Open Meteo Forecast API. The request is made using the selected latitude and longitude and returns current and future weather values. The application maps the API fields to the names expected by the trained model:
+
+| Open Meteo field | Model field | Purpose |
+|---|---|---|
+| `shortwave_radiation` | `Ghi` | Incoming solar radiation available to the site. |
+| `cloud_cover` | `CloudOpacity` | Cloud coverage used as a proxy for the historical cloud variable. |
+| `temperature_2m` | `AirTemperature` | Air temperature associated with panel operating conditions. |
+| `relative_humidity_2m` | `RelativeHumidity` | Atmospheric moisture information. |
+| `time` | `timestamp` | Determines the hour and annual calendar features. |
+
+The application also uses the Open Street Map Nominatim service only to convert the selected coordinates into a readable location name. It is not used as a source of weather values or model features.
+
+The weather retrieval and field mapping are implemented in [weather_api.py](src/solar_risk_monitor/weather_api.py). Weather responses are cached for a limited period so that the dashboard does not repeatedly request the same forecast during its refresh cycle. If the weather service is unavailable, the application cannot produce a new forecast and must display an error rather than presenting old values as current information.
+
+The weather forecast source is important to feasibility. The model is trained on historical observations from UNISOLAR, while deployment uses forecast values from Open Meteo. Differences between the two sources can create prediction error. Therefore, the model should be recalibrated and validated with local weather and generation records before it is used for a real site.
+
 The model predicts normalised solar generation rather than memorising one plant's absolute output. This allows the prediction to be scaled by a configured installed capacity. The deployment model intentionally uses variables that can be obtained from the weather service:
 
 | Attribute | Why it influences solar generation |
