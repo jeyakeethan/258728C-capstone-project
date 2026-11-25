@@ -5,7 +5,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from solar_risk_monitor.demand import generate_synthetic_demand
+from demand import generate_synthetic_demand
 
 parser = argparse.ArgumentParser(description="Generate a transparent synthetic historical site-demand training dataset.")
 parser.add_argument("--start", default="2024-01-01 00:00")

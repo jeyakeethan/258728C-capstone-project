@@ -7,7 +7,7 @@ import json
 import numpy as np
 import pandas as pd
 
-from .models import evaluate, make_model, save_bundle
+from models import evaluate, make_model, save_bundle
 
 
 GENERIC_HOLIDAYS = {(1, 1), (5, 1), (12, 25), (12, 26)}
@@ -105,19 +105,36 @@ def train_demand_forecaster(df: pd.DataFrame, out_path: Path):
         result = evaluate(model, val[DEMAND_FEATURES], val["site_load_kw"], name)
         results.append(result)
 
-    best = min(results, key=lambda r: r.mae)
+    # Keep Linear Regression as a comparison baseline, but make the deployed
+    # demand estimator explicitly HistGradientBoostingRegressor. This avoids
+    # changing the production model solely because a later dataset happens to
+    # give the baseline a slightly lower validation MAE.
+    selected_model_name = "hgb"
+    selected_validation = next(
+        result for result in results if result.model_name == selected_model_name
+    )
     train_val = pd.concat([train, val], ignore_index=True)
-    model = make_model(best.model_name)
+    model = make_model(selected_model_name)
     model.fit(train_val[DEMAND_FEATURES], train_val["site_load_kw"])
-    test_result = evaluate(model, test[DEMAND_FEATURES], test["site_load_kw"], best.model_name)
+    test_result = evaluate(
+        model,
+        test[DEMAND_FEATURES],
+        test["site_load_kw"],
+        selected_model_name,
+    )
 
     metadata = {
         "dataset_name": "synthetic_historical_site_demand",
-        "selected_model": best.model_name,
+        "selected_model": selected_model_name,
+        "estimator": "HistGradientBoostingRegressor",
+        "selection_method": "explicit_hist_gradient_boosting",
         "model_purpose": "estimate site demand for a supplied timestamp from historical calendar/time patterns",
         "feature_columns": DEMAND_FEATURES,
         "target": "site_load_kw",
-        "validation": best.__dict__,
+        "validation": selected_validation.__dict__,
+        "candidate_validation": {
+            result.model_name: result.__dict__ for result in results
+        },
         "test": test_result.__dict__,
         "synthetic_data_notice": (
             "This synthetic historical site-demand dataset is a scenario/demo training component "

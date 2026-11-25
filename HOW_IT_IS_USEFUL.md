@@ -21,7 +21,7 @@ Once a real site is available, the generated series should be replaced or supple
 
 ## Demand attributes and their purpose
 
-The demand dataset is generated in [demand.py](../src/solar_risk_monitor/demand.py) and contains the following main fields:
+The demand dataset is generated in [demand.py](src/demand.py) and contains the following main fields:
 
 | Attribute | Why it may influence demand |
 |---|---|
@@ -103,7 +103,7 @@ For deployment and future forecasting, the application requests hourly weather f
 
 The application also uses the Open Street Map Nominatim service only to convert the selected coordinates into a readable location name. It is not used as a source of weather values or model features.
 
-The weather retrieval and field mapping are implemented in [weather_api.py](src/solar_risk_monitor/weather_api.py). Weather responses are cached for a limited period so that the dashboard does not repeatedly request the same forecast during its refresh cycle. If the weather service is unavailable, the application cannot produce a new forecast and must display an error rather than presenting old values as current information.
+The weather retrieval and field mapping are implemented in [weather_api.py](src/weather_api.py). Weather responses are cached for a limited period so that the dashboard does not repeatedly request the same forecast during its refresh cycle. If the weather service is unavailable, the application cannot produce a new forecast and must display an error rather than presenting old values as current information.
 
 The weather forecast source is important to feasibility. The model is trained on historical observations from UNISOLAR, while deployment uses forecast values from Open Meteo. Differences between the two sources can create prediction error. Therefore, the model should be recalibrated and validated with local weather and generation records before it is used for a real site.
 

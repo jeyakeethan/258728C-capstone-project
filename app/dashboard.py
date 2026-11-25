@@ -9,12 +9,12 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
-from solar_risk_monitor.demand import future_demand_features
-from solar_risk_monitor.features import add_time_features
-from solar_risk_monitor.models import load_bundle
-from solar_risk_monitor.live_simulation import synthetic_live_values, estimate_present_battery
-from solar_risk_monitor.planning import simulate_battery_and_fuel, shortage_periods, summarize_energy
-from solar_risk_monitor.weather_api import describe_weather_code, fetch_open_meteo_hourly, reverse_geocode
+from demand import future_demand_features
+from features import add_time_features
+from models import load_bundle
+from live_simulation import synthetic_live_values, estimate_present_battery
+from planning import simulate_battery_and_fuel, shortage_periods, summarize_energy
+from weather_api import describe_weather_code, fetch_open_meteo_hourly, reverse_geocode
 
 st.set_page_config(page_title="Solar & Fuel Readiness Planner", page_icon="☀️", layout="wide")
 st.markdown(
@@ -57,8 +57,8 @@ SYNTHETIC_SOLAR_PATH = ROOT / "data" / "processed" / "demo_solar.csv"
 SYNTHETIC_DEMAND_PATH = ROOT / "data" / "processed" / "synthetic_site_demand.csv"
 
 st.sidebar.markdown("### Deployment site")
-latitude = st.sidebar.number_input("Latitude", value=51.5085, format="%.4f")
-longitude = st.sidebar.number_input("Longitude", value=-0.12574, format="%.5f")
+latitude = st.sidebar.number_input("Latitude", value=6.8741, format="%.4f")
+longitude = st.sidebar.number_input("Longitude", value=79.8605, format="%.5f")
 site_capacity_mw = st.sidebar.number_input("Installed solar capacity (MW)", min_value=0.001, value=400.0, step=10.0)
 site_capacity_mw = float(site_capacity_mw)
 
@@ -252,13 +252,36 @@ def render_synchronized_dashboard():
         if today_sim.empty:
             st.info("No remaining hourly forecast is available for today.")
         else:
-            hourly = today_sim[["timestamp", "solar_energy_mwh", "demand_energy_mwh", "battery_reserve_mwh", "fuel_required_mwh"]].copy()
-            hourly.columns = ["Time", "Expected solar (MWh)", "Expected demand (MWh)", "Battery reserve (MWh)", "Fuel required (MWh)"]
+            hourly = today_sim[[
+                "timestamp",
+                "expected_power_mw",
+                "solar_energy_mwh",
+                "demand_energy_mwh",
+                "battery_reserve_mwh",
+                "fuel_required_mwh",
+            ]].copy()
+            hourly.columns = [
+                "Time",
+                "Solar Power (MW)",
+                "Solar Energy (MWh)",
+                "Grid Demand (MWh)",
+                "Battery reserve (MWh)",
+                "Fuel required (MWh)",
+            ]
             hourly["Time"] = pd.to_datetime(hourly["Time"]).dt.strftime("%H:%M")
             for c in hourly.columns[1:]:
                 hourly[c] = (hourly[c]).round(3)
-            st.dataframe(hourly, use_container_width=True, hide_index=True)
-            st.caption("Battery reserve is the energy available at the beginning of each forecast interval. End-state is calculated internally.")
+            st.dataframe(
+                hourly,
+                width="stretch",
+                hide_index=True,
+                alt="Today's hourly solar, demand, battery, and fuel calculation",
+            )
+            st.caption(
+                "Grid Demand is forecast demand before solar and battery offsets. "
+                "Battery reserve is the energy available at the beginning of each "
+                "forecast interval. End-state is calculated internally."
+            )
 
     future_dates = sorted(d for d in frame["date"].unique() if d > today)[:7]
     rows = []

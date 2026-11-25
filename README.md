@@ -107,6 +107,8 @@ python workflows/generate_synthetic_demand.py
 python workflows/train_demand_model.py
 ```
 
+The demand workflow keeps Linear Regression as a comparison baseline but explicitly deploys a `HistGradientBoostingRegressor` model. It also writes `models/demand_end_fit.png` and `models/demand_end_fit.csv`, showing actual versus predicted demand for the final seven days of the chronological test partition.
+
 Generate the synthetic solar trace used only for the dashboard's simulated present-power display:
 
 ```bash

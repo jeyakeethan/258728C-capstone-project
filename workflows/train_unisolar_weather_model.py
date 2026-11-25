@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from solar_risk_monitor.data import load_canonical_csv
-from solar_risk_monitor.features import add_time_features, weather_only_feature_columns
-from solar_risk_monitor.models import evaluate, make_model, metrics_from_predictions, save_bundle
+from data import load_canonical_csv
+from features import add_time_features, weather_only_feature_columns
+from models import evaluate, make_model, metrics_from_predictions, save_bundle
 
 
 def time_split(frame: pd.DataFrame, train_ratio=0.70, val_ratio=0.15):
