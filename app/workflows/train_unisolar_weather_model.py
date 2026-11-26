@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "src"))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "app" / "utils"))
 
 from data import load_canonical_csv
 from features import add_time_features, weather_only_feature_columns

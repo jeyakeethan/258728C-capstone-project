@@ -135,3 +135,41 @@ If packaged joblib files were created under an incompatible scikit-learn version
 The Streamlit dashboard uses a **5-second heartbeat**. **Solar Power** uses the weather-based ML forecast from the UNISOLAR model, and **Site Demand is produced by the trained demand model for the exact current timestamp**, including minute/second information, rather than replaying a row from the historical demand dataset. Present Battery Reserve is an estimated value because no physical battery telemetry is available. Demand remains synthetic-origin until measured site demand is available.
 
 All downstream today/fuel-readiness calculations are re-evaluated on each heartbeat. External weather responses and trained model objects are cached independently to avoid unnecessary API/model reloads. Future-day energy balance is still calculated hourly internally and shown only as daily readiness outcomes.
+
+## How to get it work
+### Activate venv environment
+```bash
+.venv\Scripts\activate
+```
+
+### Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Prepare Datasets
+```bash
+python .\app\workflows\generate_synthetic_demand.py
+python .\app\workflows\generate_demo_data.py
+python .\app\workflows\prepare_unisolar.py
+```
+
+### Train the demand model
+```bash
+python .\app\workflows\train_demand_model.py
+```
+
+### Exploratory data analysis
+```bash
+python .\app\analysis\eda_unisolar.py
+```
+
+### Train the solar model
+```bash
+python .\app\workflows\train_unisolar_weather_model.py
+```
+
+### Run the application
+```bash
+streamlit run app/dashboard.py
+```

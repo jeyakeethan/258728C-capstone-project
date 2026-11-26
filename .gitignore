@@ -10,5 +10,6 @@ models/*
 
 reports/figures/*
 !reports/figures/.gitkeep
+!reports/figures/unisolar_eda/
+!reports/figures/unisolar_eda/**
 
-.venvScriptsactivate.txt

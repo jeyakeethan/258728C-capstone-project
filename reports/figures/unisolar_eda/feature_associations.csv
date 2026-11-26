@@ -1,0 +1,17 @@
+feature,observations,pearson_correlation,spearman_correlation,mutual_information,deployment_selected,rationale
+hour,15955,0.007762166967015583,0.01893722611459669,0.4018748631031297,True,Captures the solar-day operating pattern.
+hour_sin,15955,-0.09144874893441922,-0.04581243422046951,0.3297462427821287,True,Continuous daily cycle representation.
+hour_cos,15955,-0.4895502661748314,-0.559739491643449,0.3002669929081163,True,Continuous daily cycle representation.
+RelativeHumidity,15947,-0.48803145832976697,-0.48732233931438895,0.16172493366937424,True,Available at deployment and may capture atmospheric conditions.
+AirTemperature,15947,0.4278753612473921,0.42061569968094753,0.13519373399737944,True,Available at deployment and related to PV operating conditions.
+Ghi,15795,-0.2954184927988241,-0.4200355043944059,0.12655242910899434,True,Direct irradiance signal and the strongest physical driver of PV output.
+day_of_year,15955,0.03810564960295763,0.03219568421929959,0.12431189763518713,True,Captures annual solar-position and seasonal effects.
+doy_cos,15955,0.21541566727541514,0.1833770275781327,0.08172468679653022,True,Continuous annual cycle representation.
+month,15955,0.03594967301179502,0.03111406455728658,0.08166142977551294,True,Coarse annual-season indicator.
+ApparentTemperature,15947,0.35486936971090816,0.32680981037042633,0.08025372192643321,False,"Historical weather candidate, but no direct deployment model input is used."
+doy_sin,15955,-0.04791244980377812,-0.043920213854245875,0.05285880025217082,True,Continuous annual cycle representation.
+WindSpeed,7611,0.15031513440397956,0.1862004520772468,0.04796419846381372,False,Historical candidate with high missingness and no selected deployment mapping.
+CloudOpacity,15795,-0.07033903425238845,-0.09072573527777172,0.030123278516212437,True,Cloud proxy available from the deployment weather API.
+DewPointTemperature,15947,-0.02475951576813079,-0.014166571503877304,0.023852651652602752,False,"Historical weather candidate, but no direct deployment model input is used."
+WindDirection,7611,-0.04968456820839209,-0.07773839156236297,0.02343661635126537,False,Historical candidate with high missingness and no selected deployment mapping.
+day_of_week,15955,0.005029577894768403,0.005955414868526706,0.004094230135186727,True,Retained as a calendar control; physical contribution should be tested.

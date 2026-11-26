@@ -1,0 +1,35 @@
+flowchart LR
+    subgraph U[UNISOLAR source data]
+        G[Solar_Generation_sub.csv<br/>Target: SolarGeneration]
+        W[Weather_data_sub.csv<br/>Historical weather]
+        I[Solar_Irradiance.csv<br/>Ghi and CloudOpacity]
+        S[Solar_Site_Details.csv<br/>Capacity and location metadata]
+    end
+
+    E[Exploratory analysis<br/>missingness, profiles, associations, feature selection]
+    P[Preprocessing<br/>parse, merge, deduplicate, interpolate short gaps, add flags]
+    C[Canonical unisolar.csv<br/>normalized_solar target]
+
+    subgraph M[Forecasting and planning system]
+        B[Linear Regression<br/>baseline]
+        H[HistGradientBoostingRegressor<br/>improved solar predictor]
+        D[Synthetic demand HGB<br/>supporting site demand estimate]
+        X[Hourly energy balance<br/>solar + demand + battery + fuel]
+        V[Streamlit dashboard<br/>readiness warnings]
+    end
+
+    API[Open Meteo hourly forecast API<br/>GHI, cloud, temperature, humidity]
+
+    G --> E
+    W --> E
+    I --> E
+    S --> E
+    E --> P
+    P --> C
+    C --> B
+    C --> H
+    API --> H
+    API --> X
+    H --> X
+    D --> X
+    X --> V

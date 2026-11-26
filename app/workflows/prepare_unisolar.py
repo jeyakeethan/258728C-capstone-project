@@ -3,7 +3,7 @@ import argparse
 import numpy as np
 import pandas as pd
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 RAW_DEFAULT = ROOT / "data" / "raw" / "unisolar"
 OUT_DEFAULT = ROOT / "data" / "processed" / "unisolar.csv"
 
