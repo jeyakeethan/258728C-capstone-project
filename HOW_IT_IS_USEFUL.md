@@ -1,23 +1,23 @@
-# How the system is useful
+# System purpose and scope
 
 ## Purpose
 
-This project is a software based forecasting and risk monitoring model. It does not require physical sensors, batteries, generators, or other hardware to demonstrate its value. The operational screen is only the delivery layer. The main contribution is the design and evaluation of a data driven method for estimating solar generation and identifying periods in which available renewable energy may be insufficient.
+This project is an energy-risk planning application. It predicts solar generation from weather data, estimates site demand, and simulates the hourly balance between solar, demand, battery reserve, and generator-backed energy.
 
 The system combines two related forecasts:
 
 1. expected site demand from calendar and time information; and
 2. expected solar generation from weather, time, and installed capacity.
 
-The purpose is to prevent an interruption in electricity availability by giving the responsible team enough time to confirm and secure the required backup supply. The alert supports operational preparation; it does not automatically control the generator.
+The purpose is to identify forecast shortage periods early enough for an operator to prepare backup supply. The application provides planning information; it does not control a generator.
 
 ## Why demand forecasting is useful
 
 Site demand is not normally available as a simple lookup table for every future timestamp. A previous day can be useful, but the same clock time may have a different demand because it falls on a weekend, holiday, season, or a different point in the annual cycle. A forecasting model provides a repeatable way to estimate demand for a new timestamp using patterns learned from historical observations.
 
-The current project uses a generated dataset because a physical deployment site and measured load history are not yet available. The generated series represents a plausible commercial site profile and is intended to test the complete software workflow. Its results must not be described as evidence of real site demand accuracy.
+Measured site-demand data is not available in the current implementation. The demand model therefore uses reproducible synthetic hourly data for workflow development and demonstration. Its results are not evidence of real-site demand accuracy.
 
-Once a real site is available, the generated series should be replaced or supplemented with measured interval load data. The demand model interface can remain the same: timestamp features are supplied and the model returns expected load.
+For deployment, the synthetic demand series should be replaced or supplemented with measured interval load data. The model interface can remain the same: timestamp features are supplied and the model returns estimated load.
 
 ## Demand attributes and their purpose
 
@@ -44,21 +44,13 @@ The current feature set is suitable for a first model, but it is not a complete 
 * rainfall or other weather variables where they affect operations;
 * special events and the complete local holiday calendar.
 
-The most important future change would be adding lagged demand features such as load one hour ago, one day ago, and one week ago. These features should only be used when the corresponding historical measurement is available. They must be created using time based validation to avoid leakage.
+Future demand training should use measured lagged load features, such as the previous hour, previous day, and previous week, when those observations are available. These features must be generated within chronological validation boundaries.
 
-## How to train the demand model effectively
+## Demand model deployment
 
-It is not necessary to wait one full year before making the first prediction. A practical deployment process is:
+The current workflow uses chronological training, validation, and test partitions. A deployment process should retrain periodically as measured demand data accumulates and should retain a fixed recent holdout period for fair evaluation.
 
-1. Begin with the historical data that is available, even if it covers only several weeks or months.
-2. Train an initial model using chronological training, validation, and test periods.
-3. Use the model operationally while continuing to collect measured demand.
-4. Retrain periodically with the enlarged history, for example weekly or monthly.
-5. Monitor forecast error and retrain earlier when error or demand behaviour changes materially.
-
-The first year is valuable because it exposes the model to annual seasonality, but it is not a prerequisite for starting the system. During the cold start period, the model should show a lower confidence status and use conservative planning thresholds.
-
-The current HGB implementation does not support true incremental updates through `partial_fit`. Therefore, “train as it goes” should mean periodic batch retraining on the latest accumulated history, not silently updating the model after every row. A rolling training window can be used when old behaviour is no longer representative. A real deployment should retain a fixed recent holdout period so that each retraining cycle is evaluated fairly.
+The current HistGradientBoostingRegressor is batch-trained. It is not updated incrementally after each new observation.
 
 ## Local circuit versus public grid operation
 
@@ -139,27 +131,12 @@ The model should therefore be treated as a transferable starting point, not a un
 
 Useful adaptation methods include local bias correction, retraining with a mixture of UNISOLAR and local data, adding site metadata, and training a local model after sufficient observations have accumulated. A model should not be declared feasible for a new region until it has passed local validation.
 
-## What the alert means
+## Operational alert
 
-The system is intended to maintain backup availability and help prevent an interruption in electricity supply. It does not need to control a generator, but it should provide an early warning when forecast renewable supply may be insufficient. This gives the responsible team time to verify that adequate backup fuel and generation capacity are available before the risk becomes an interruption.
+The alert identifies when forecast solar and battery energy may not meet demand and reports the generator-backed energy required for the shortage period. It supports operator preparation and does not control physical equipment.
 
-For example:
+## Scope conclusion
 
-> **Today: confirm backup availability before 13:00.** Forecast solar generation is expected to fall below the relevant energy requirement, and the supply risk may begin at 13:00.
+The current implementation demonstrates the software pipeline and planning workflow. Operational accuracy requires measured local solar and demand data, local validation, appropriate calendar information, continued error monitoring, and explicit treatment of uncertainty.
 
-The alert should ideally include the forecast horizon, expected generation, confidence or scenario level, and the reason for the warning. A conservative alert can be generated before the worst case occurs, giving an operator time to confirm reserve availability.
-
-## Feasibility conclusion
-
-The software model is feasible as a forecasting and early warning prototype. Its value is not that it replaces physical energy infrastructure; its value is that it converts available weather and historical generation data into an interpretable planning signal.
-
-The main conditions for industry use are:
-
-* measured local generation data for adaptation;
-* a correct local holiday and operating calendar;
-* real demand data if the system is behind the meter;
-* clear separation between local load and grid export use cases;
-* continuous error monitoring and periodic retraining;
-* conservative treatment of uncertainty and missing data.
-
-The current generated demand data is appropriate for demonstrating the model pipeline, but the final evaluation must clearly distinguish software feasibility from proven operational accuracy.
+Synthetic demand results demonstrate the pipeline only; they do not establish real-site demand accuracy.

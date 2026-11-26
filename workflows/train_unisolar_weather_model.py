@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+from datetime import timedelta
 import json
 import sys
 
@@ -68,11 +69,6 @@ if not features:
 
 train, val, test = time_split(frame)
 
-linear_model = make_model("linear")
-linear_model.fit(train[features], train["normalized_solar"])
-linear_result = evaluate(linear_model, val[features], val["normalized_solar"], "linear")
-print(f"VALIDATION LINEAR: {json.dumps(linear_result.__dict__, indent=2)}")
-
 hgb_grid = [
     {"learning_rate": lr, "max_iter": it, "max_leaf_nodes": leaves,
      "min_samples_leaf": min_leaf, "l2_regularization": l2}
@@ -95,22 +91,20 @@ hgb_result = best_hgb_trial["metrics"]
 print(f"BEST HGB PARAMS: {json.dumps(best_hgb_params, indent=2)}")
 print(f"VALIDATION HGB: {json.dumps(hgb_result.__dict__, indent=2)}")
 
-results = [linear_result, hgb_result]
-best = min(results, key=lambda r: (r.mae, r.rmse))
 train_val = pd.concat([train, val], ignore_index=True)
-model = make_model(best.model_name, hgb_params=best_hgb_params if best.model_name == "hgb" else None)
+model = make_model("hgb", hgb_params=best_hgb_params)
 model.fit(train_val[features], train_val["normalized_solar"])
-test_result = evaluate(model, test[features], test["normalized_solar"], best.model_name)
+test_result = evaluate(model, test[features], test["normalized_solar"], "hgb")
 site_results = per_site_metrics(model, test, features)
 
-end_cutoff = pd.to_datetime(test["timestamp"]).max() - pd.Timedelta(days=7)
+end_cutoff = pd.to_datetime(test["timestamp"]).max() - timedelta(days=7)
 end_fit = test.loc[pd.to_datetime(test["timestamp"]) >= end_cutoff].copy()
 end_fit["predicted_generation_proportion"] = model.predict(end_fit[features])
 end_fit["actual_generation_proportion"] = end_fit["normalized_solar"]
 end_fit_metrics = metrics_from_predictions(
     end_fit["actual_generation_proportion"],
     end_fit["predicted_generation_proportion"],
-    best.model_name,
+    "hgb",
 )
 
 evidence_columns = ["timestamp"]
@@ -152,14 +146,13 @@ plt.close(fig)
 
 metadata = {
     "dataset_name": "unisolar_multi_site",
-    "selected_model": best.model_name,
+    "selected_model": "hgb",
     "model_purpose": "estimate expected normalized PV generation from weather and time",
     "feature_columns": features,
     "target": "solar_power / site_capacity_kwp",
     "target_scale": "capacity_ratio",
     "sites": int(frame["site_id"].nunique()) if "site_id" in frame.columns else None,
-    "validation": best.__dict__,
-    "candidate_validation": {"linear": linear_result.__dict__, "hgb": hgb_result.__dict__},
+    "validation": hgb_result.__dict__,
     "hgb_tuning": {
         "selection_metric": "lowest validation MAE, RMSE tie-breaker",
         "search_type": "small explicit grid on chronological validation partition",
@@ -186,7 +179,7 @@ out = Path(args.out)
 out.parent.mkdir(parents=True, exist_ok=True)
 save_bundle(model, features, out, metadata=metadata)
 out.with_suffix(".json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
-print(f"BEST MODEL: {best.model_name}")
+print("BEST MODEL: hgb")
 print(f"TEST: {json.dumps(test_result.__dict__, indent=2)}")
 print(f"END-OF-DATASET FIT (FINAL 7 DAYS): {json.dumps(end_fit_metrics.__dict__, indent=2)}")
 print(f"Saved end-of-dataset fit plot: {end_fit_plot}")

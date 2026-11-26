@@ -1,6 +1,6 @@
 # Weather-Aware Solar & Fuel Readiness Planner
 
-An end-to-end CS5998 capstone prototype that combines a **weather-aware solar forecast**, a **time-series site-demand forecast**, and an **hourly battery energy simulation** to warn when generator-backed electrical energy must be prepared.
+An end-to-end energy-risk planning application that combines a **weather-based solar prediction**, a **synthetic-demand estimation component**, and an **hourly battery energy simulation** to identify when generator-backed electrical energy may be required.
 
 ## Final operational logic
 
@@ -38,7 +38,7 @@ Installed solar capacity: 2000 MW
 Usable battery capacity: 1500 MWh
 ```
 
-The historical UNISOLAR preparation files retain the source dataset's original field names/units for reproducibility. The trained solar target is normalized, so deployment predictions are scaled directly by the configured **1500 MW** capacity.
+The historical UNISOLAR preparation files retain the source dataset's original field names/units for reproducibility. The trained solar target is normalized, so deployment predictions are scaled directly by the configured **2000 MW** capacity.
 
 ## Dashboard
 
@@ -48,7 +48,7 @@ For **today**, the simulation starts from the entered current battery reserve an
 
 For the **next seven forecast days**, battery state is continuous across midnight. Tomorrow starts with today’s forecast ending reserve, and every later day starts with the preceding day’s ending reserve. The system simulates every hour. Solar surplus can charge the battery up to its usable capacity; demand consumes solar and then available battery; only remaining unmet demand becomes fuel-backed energy. The dashboard presents one wide row per day with expected solar energy, expected demand, fuel-backed energy required, and readiness status.
 
-Hourly calculations are hidden in collapsible sections. The operator-facing table intentionally shows only `Time`, `Expected Solar`, `Expected Demand`, `Battery Reserve`, and `Fuel Required`. Battery end-state is calculated internally but is not displayed.
+Hourly calculations are hidden in collapsible sections. The operator-facing table shows `Time`, `Solar Power (MW)`, `Solar Energy (MWh)`, `Grid Demand (MWh)`, `Battery reserve (MWh)`, and `Fuel required (MWh)`.
 
 ## Battery simulation
 
@@ -96,7 +96,7 @@ Deployment weather uses Open-Meteo mappings: `shortwave_radiation → Ghi`, `clo
 
 ### Solar HGB hyperparameter tuning
 
-The UNISOLAR training script performs a small, explicit and reproducible HGB hyperparameter search using the chronological validation partition only. It searches `learning_rate`, `max_iter`, `max_leaf_nodes`, `min_samples_leaf`, and `l2_regularization`, selects the HGB configuration with the lowest validation MAE (RMSE tie-breaker), and leaves the final chronological test partition untouched. The selected parameters and tuning protocol are written into the solar model metadata JSON. Linear Regression remains the untuned baseline.
+The UNISOLAR training script performs a small, reproducible HistGradientBoostingRegressor hyperparameter search using the chronological validation partition only. It searches `learning_rate`, `max_iter`, `max_leaf_nodes`, `min_samples_leaf`, and `l2_regularization`, then evaluates the selected configuration on the untouched chronological test partition. The selected parameters and tuning protocol are written into the solar model metadata JSON.
 
 ## Demand model
 
@@ -107,7 +107,7 @@ python workflows/generate_synthetic_demand.py
 python workflows/train_demand_model.py
 ```
 
-The demand workflow keeps Linear Regression as a comparison baseline but explicitly deploys a `HistGradientBoostingRegressor` model. It also writes `models/demand_end_fit.png` and `models/demand_end_fit.csv`, showing actual versus predicted demand for the final seven days of the chronological test partition.
+The demand workflow deploys a `HistGradientBoostingRegressor` model. It also writes `models/demand_end_fit.png` and `models/demand_end_fit.csv`, showing actual versus predicted demand for the final seven days of the chronological test partition.
 
 Synthetic demand performance demonstrates the planning workflow; it is **not evidence of real-site demand accuracy**.
 

@@ -5,7 +5,6 @@ import numpy as np
 
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.impute import SimpleImputer
-from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 
@@ -31,9 +30,7 @@ def chronological_split(df, train_ratio=0.70, validation_ratio=0.15):
 
 def make_model(name, hgb_params=None):
     name = name.lower()
-    if name == "linear":
-        estimator = LinearRegression()
-    elif name in {"hgb", "hist_gradient_boosting"}:
+    if name in {"hgb", "hist_gradient_boosting"}:
         params = {
             "learning_rate": 0.05,
             "max_iter": 300,
@@ -48,9 +45,7 @@ def make_model(name, hgb_params=None):
     else:
         raise ValueError(f"Unknown model: {name}")
 
-    # Missing weather is a property of the raw UNISOLAR sample, not a reason
-    # to drop the corresponding target observations. Median imputation is fit
-    # only on the training partition via this Pipeline, preventing leakage.
+    # Fit imputation only on the training partition to prevent leakage.
     return Pipeline([
         ("imputer", SimpleImputer(strategy="median", add_indicator=True)),
         ("model", estimator),

@@ -22,7 +22,6 @@ def varied_prediction(
     if pd.isna(current_time):
         raise ValueError("timestamp must be a valid timestamp")
 
-    # A deterministic cycle avoids random jumps on the five-second heartbeat.
     phase = current_time.timestamp() / (10.0 * 60.0) + float(phase_offset)
     multiplier = 1.0 + float(variation_fraction) * np.sin(phase)
     return max(0.0, base_value * multiplier)
@@ -34,13 +33,7 @@ def estimate_present_battery(
     battery_capacity_mwh: float,
     initial_fraction: float = 0.5,
 ) -> float:
-    """Estimate current reserve from the forecast solar and demand frame.
-
-    Because no physical battery telemetry is available, the estimate starts each
-    local day at a documented fraction of usable capacity and replays the
-    weather-based solar forecast and demand-model forecast from midnight to the
-    current heartbeat. Solar is never sourced from synthetic telemetry here.
-    """
+    """Estimate current battery reserve from the forecast frame."""
     required = {"timestamp", "expected_power_mw", "forecast_load_mw"}
     missing = required - set(forecast_frame.columns)
     if missing:

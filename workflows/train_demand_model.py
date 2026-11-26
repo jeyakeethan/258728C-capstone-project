@@ -26,9 +26,7 @@ data = pd.read_csv(args.data, parse_dates=["timestamp"])
 out = Path(args.out)
 metadata = train_demand_forecaster(data, out)
 
-# Generate the same kind of end-of-dataset evidence as the UNISOLAR workflow.
-# The final seven days are selected from the untouched chronological test
-# partition, so the plot shows genuine out-of-sample predictions.
+# Build fit evidence from the final seven days of the chronological test partition.
 _, _, test = chronological_demand_split(data)
 bundle = load_bundle(out)
 model = bundle["model"]
