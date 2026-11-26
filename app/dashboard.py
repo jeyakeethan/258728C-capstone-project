@@ -12,7 +12,7 @@ import streamlit as st
 from demand import future_demand_features
 from features import add_time_features
 from models import load_bundle
-from live_simulation import synthetic_live_values, estimate_present_battery
+from live_simulation import estimate_present_battery, varied_prediction
 from planning import simulate_battery_and_fuel, shortage_periods, summarize_energy
 from weather_api import describe_weather_code, fetch_open_meteo_hourly, reverse_geocode
 
@@ -53,17 +53,15 @@ st.markdown(
 
 SOLAR_MODEL_PATH = ROOT / "models" / "unisolar_weather_forecaster.joblib"
 DEMAND_MODEL_PATH = ROOT / "models" / "site_demand_forecaster.joblib"
-SYNTHETIC_SOLAR_PATH = ROOT / "data" / "processed" / "demo_solar.csv"
-SYNTHETIC_DEMAND_PATH = ROOT / "data" / "processed" / "synthetic_site_demand.csv"
 
 st.sidebar.markdown("### Deployment site")
 latitude = st.sidebar.number_input("Latitude", value=6.8741, format="%.4f")
 longitude = st.sidebar.number_input("Longitude", value=79.8605, format="%.5f")
-site_capacity_mw = st.sidebar.number_input("Installed solar capacity (MW)", min_value=0.001, value=400.0, step=10.0)
+site_capacity_mw = st.sidebar.number_input("Installed solar capacity (MW)", min_value=0.001, value=2000.0, step=10.0)
 site_capacity_mw = float(site_capacity_mw)
 
 st.sidebar.markdown("### Battery")
-battery_capacity_mwh = st.sidebar.number_input("Usable battery capacity (MWh)", min_value=0.0, value=2500.0, step=10.0)
+battery_capacity_mwh = st.sidebar.number_input("Usable battery capacity (MWh)", min_value=0.0, value=1500.0, step=10.0)
 battery_capacity_mwh = float(battery_capacity_mwh)
 st.sidebar.caption("Present battery reserve is estimated by the synchronized simulation because live battery telemetry is not available. Forecast battery state is carried continuously from today into each following day.")
 
@@ -81,10 +79,6 @@ def get_location_name(lat: float, lon: float):
 @st.cache_resource(show_spinner=False)
 def get_model(path: str):
     return load_bundle(path)
-
-@st.cache_data(show_spinner=False)
-def get_simulation_data(path: str):
-    return pd.read_csv(path)
 
 try:
     weather = get_weather(float(latitude), float(longitude))
@@ -107,12 +101,6 @@ except Exception as exc:
     st.info("If the joblib files were created with another scikit-learn version, retrain both models in the current environment.")
     st.code("python workflows/generate_synthetic_demand.py\npython workflows/train_demand_model.py\npython workflows/prepare_unisolar.py\npython workflows/train_unisolar_weather_model.py")
     st.stop()
-
-if not SYNTHETIC_SOLAR_PATH.exists() or not SYNTHETIC_DEMAND_PATH.exists():
-    st.error("Synthetic simulation traces are missing. Generate the demo solar and demand data first.")
-    st.stop()
-solar_sim_data = get_simulation_data(str(SYNTHETIC_SOLAR_PATH))
-demand_sim_data = get_simulation_data(str(SYNTHETIC_DEMAND_PATH))
 
 @st.fragment(run_every=5.0)
 def render_synchronized_dashboard():
@@ -148,17 +136,16 @@ def render_synchronized_dashboard():
     nearest_idx = (frame["timestamp"] - current_hour).abs().idxmin()
     current = frame.loc[nearest_idx]
 
-    simulated_solar_mw, _ = synthetic_live_values(
-        solar_sim_data, demand_sim_data, local_now, float(site_capacity_mw)
-    )
     current_demand_features = future_demand_features(pd.DatetimeIndex([local_now]))
     current_demand_mw = max(
         0.0,
         float(demand_model.predict(current_demand_features[demand_features])[0]),
     )
     estimated_battery_mwh = estimate_present_battery(
-        solar_sim_data, demand_sim_data, local_now,
-        float(site_capacity_mw), float(battery_capacity_mwh), initial_fraction=0.5,
+        frame,
+        local_now,
+        float(battery_capacity_mwh),
+        initial_fraction=0.5,
     )
 
     def current_or_row(api_key: str, row_key: str, default=0.0):
@@ -199,26 +186,25 @@ def render_synchronized_dashboard():
     st.caption("Forecast expected solar generation, combine it with demand and battery state, and warn in advance when fuel-backed electrical energy is required.")
 
     expected_now = float(current["expected_power_mw"])
-    simulated_solar_pct = 100.0 * simulated_solar_mw / float(site_capacity_mw) if site_capacity_mw > 0 else 0.0
     expected_pct = 100.0 * expected_now / float(site_capacity_mw) if site_capacity_mw > 0 else 0.0
+    live_solar_mw = varied_prediction(expected_now, local_now, variation_fraction=0.05)
+    live_solar_pct = 100.0 * live_solar_mw / float(site_capacity_mw) if site_capacity_mw > 0 else 0.0
+    live_demand_mw = varied_prediction(
+        current_demand_mw,
+        local_now,
+        variation_fraction=0.05,
+        phase_offset=np.pi / 2,
+    )
 
     st.markdown("### Live — present status")
     st.caption(f"Synchronized at {local_now.strftime('%H:%M:%S')} · refresh heartbeat: 5 seconds")
     cols = st.columns(4)
     with cols[0]:
-        st.metric("Solar Power", f"{simulated_solar_mw:.3f} MW")
-        st.markdown('<div class="small-note">(simulated value)</div>', unsafe_allow_html=True)
-        st.caption(f"{simulated_solar_pct:.1f}% of installed capacity")
+        st.metric("Solar Power", f"{live_solar_mw:.3f} MW")
     with cols[1]:
-        st.metric("Expected Site Demand", f"{current_demand_mw:.3f} MW")
-        st.markdown('<div class="small-note"><b>(ML estimate at current timestamp)</b></div>', unsafe_allow_html=True)
+        st.metric("Site Demand", f"{live_demand_mw:.3f} MW")
     with cols[2]:
         st.metric("Battery Reserve", f"{estimated_battery_mwh:.3f} / {battery_capacity_mwh:.3f} MWh")
-        st.markdown('<div class="small-note">(estimated value)</div>', unsafe_allow_html=True)
-    with cols[3]:
-        st.metric("Expected Solar Generation", f"{expected_now:.3f} MW")
-        st.markdown('<div class="small-note"><b>(ML forecast)</b></div>', unsafe_allow_html=True)
-        st.caption(f"{expected_pct:.1f}% of installed capacity")
 
     today = local_now.date()
     today_frame = frame[(frame["date"] == today) & (frame["timestamp"] >= current_hour)].copy()
@@ -234,9 +220,9 @@ def render_synchronized_dashboard():
 
     st.markdown("### Today — fuel readiness")
     summary_cols = st.columns(3)
-    summary_cols[0].metric("Expected solar energy remaining", f"{today_summary['solar_energy_mwh']:.3f} MWh")
-    summary_cols[1].metric("Expected demand remaining", f"{today_summary['demand_energy_mwh']:.3f} MWh")
-    summary_cols[2].metric("Fuel-backed energy required", f"{today_summary['fuel_required_mwh']:.3f} MWh")
+    summary_cols[0].metric("Expected Solar Energy", f"{today_summary['solar_energy_mwh']:.3f} MWh")
+    summary_cols[1].metric("Expected Demand", f"{today_summary['demand_energy_mwh']:.3f} MWh")
+    summary_cols[2].metric("Fuel-backed Required", f"{today_summary['fuel_required_mwh']:.3f} MWh")
 
     if today_periods:
         for period in today_periods:
@@ -313,10 +299,8 @@ def render_synchronized_dashboard():
         })
 
     st.markdown("### 7-day fuel readiness forecast")
-    st.caption("Battery reserve is carried continuously across day boundaries. Calculations are hourly internally and presented as daily outcomes.")
 
     if rows:
-        st.caption("Each day shows its summary before expansion. Turn on hourly evidence to inspect the weather, forecast, battery and fuel calculations for that day.")
         for r in rows:
             fuel = r["fuel_required_mwh"]
             readiness = f"⚠ PREPARE {fuel:.3f} MWh" if fuel > 0.5 else "✓ No fuel-backed energy forecast"
@@ -329,61 +313,44 @@ def render_synchronized_dashboard():
             daily_cols[3].metric("End battery", f"{r['end_battery_mwh']:.3f} MWh")
             daily_cols[4].metric("Fuel-backed energy", f"{fuel:.3f} MWh")
 
-            day_key = pd.to_datetime(r["date"], dayfirst=True).strftime("%Y%m%d")
-            show_hourly = st.toggle(
-                "Show hourly weather & calculation evidence",
-                key=f"show_hourly_evidence_{day_key}",
-            )
-
-            if show_hourly:
+            with st.expander("View hourly calculation"):
                 hourly = r["hourly"].copy()
                 if hourly.empty:
-                    st.info("No hourly forecast evidence is available for this day.")
+                    st.info("No hourly forecast calculation is available for this day.")
                 else:
-                    hourly["Condition"] = hourly.get("WeatherCode", pd.Series(index=hourly.index, dtype=float)).apply(
-                        lambda code: describe_weather_code(code)[0] if pd.notna(code) else "Unknown"
-                    )
-                    evidence = hourly[[
-                        "timestamp", "Condition", "Ghi", "CloudOpacity", "AirTemperature", "RelativeHumidity",
-                        "expected_power_mw", "forecast_load_mw", "solar_energy_mwh", "demand_energy_mwh",
-                        "battery_reserve_mwh", "battery_end_mwh", "fuel_required_mwh",
+                    hourly = hourly[[
+                        "timestamp",
+                        "expected_power_mw",
+                        "solar_energy_mwh",
+                        "demand_energy_mwh",
+                        "battery_reserve_mwh",
+                        "fuel_required_mwh",
                     ]].copy()
-                    evidence.columns = [
-                        "Time", "Weather", "GHI (W/m²)", "Cloud (%)", "Temp (°C)", "Humidity (%)",
-                        "Expected solar (MW)", "Expected demand (MW)", "Solar energy (MWh)",
-                        "Demand energy (MWh)", "Battery start (MWh)", "Battery end (MWh)", "Fuel required (MWh)",
+                    hourly.columns = [
+                        "Time",
+                        "Solar Power (MW)",
+                        "Solar Energy (MWh)",
+                        "Grid Demand (MWh)",
+                        "Battery reserve (MWh)",
+                        "Fuel required (MWh)",
                     ]
-                    evidence["Time"] = pd.to_datetime(evidence["Time"]).dt.strftime("%H:%M")
-                    numeric_columns = [c for c in evidence.columns if c not in ("Time", "Weather")]
-                    evidence[numeric_columns] = evidence[numeric_columns].round(3)
-                    st.dataframe(evidence, use_container_width=True, hide_index=True)
+                    hourly["Time"] = pd.to_datetime(hourly["Time"]).dt.strftime("%H:%M")
+                    for column in hourly.columns[1:]:
+                        hourly[column] = hourly[column].round(3)
+                    st.dataframe(
+                        hourly,
+                        width="stretch",
+                        hide_index=True,
+                        alt=f"{r['label']} hourly solar, demand, battery, and fuel calculation",
+                    )
                     st.caption(
-                        "Hourly evidence uses the weather-provider forecast for that hour. "
-                        "Expected solar and demand are model outputs; battery and fuel values are calculated sequentially from those forecasts."
+                        "Grid Demand is forecast demand before solar and battery offsets. "
+                        "Battery reserve is the energy available at the beginning of each "
+                        "forecast interval. End-state is calculated internally."
                     )
             st.divider()
     else:
         st.info("The weather provider did not return enough future calendar days.")
-
-    with st.expander("Calculation & model assumptions"):
-        st.markdown(
-            """
-**5-second heartbeat.** The dashboard re-synchronizes present simulated solar, the demand-model estimate for the exact current timestamp, estimated battery reserve, expected solar generation and downstream readiness calculations every five seconds. Weather API responses and model objects are cached so synchronization does not imply unnecessary external API calls.
-
-**Simulation traces are not the research scope.** Synthetic solar and demand records provide demonstration telemetry where physical site sensors are unavailable. They are not used as evidence for the solar-forecasting research contribution.
-
-**Hourly calculation, daily presentation.** Expected solar and expected demand are converted to hourly energy. Solar surplus charges the battery up to usable capacity. When demand exceeds solar, available battery energy is used first. Only remaining unmet energy is counted as **fuel-backed electrical energy required (MWh)** in the dashboard.
-
-For **today**, planning starts from the heartbeat's estimated present battery reserve. The resulting battery end-state is carried into tomorrow, and the reserve continues across every subsequent day boundary.
-
-The system does **not** estimate litres of fuel. Battery efficiency, degradation and charge/discharge power limits are outside the current capstone scope.
-            """
-        )
-        st.write("Solar forecast source:", solar_bundle.get("metadata", {}).get("dataset_name", "unknown"))
-        st.write("Solar forecast model:", solar_bundle.get("metadata", {}).get("selected_model", "unknown"))
-        st.write("Demand planning model:", demand_bundle.get("metadata", {}).get("selected_model", "unknown"))
-
-    st.caption("Forecast assumptions: deployment cloud cover proxies the UNISOLAR cloud variable; forecast weather differs from observed training weather; geographical transfer beyond UNISOLAR sites requires separate validation.")
 
     # Training evidence is generated by workflows/train_unisolar_weather_model.py.
     # Keep it at the very end of the dashboard and collapsed by default.
@@ -392,7 +359,7 @@ The system does **not** estimate litres of fuel. Battery efficiency, degradation
         end_fit_csv = ROOT / "models" / "unisolar_end_fit.csv"
 
         if end_fit_plot.exists():
-            st.image(str(end_fit_plot), caption="Actual vs predicted generation proportion — final 7 days of UNISOLAR test data", use_container_width=True)
+            st.image(str(end_fit_plot), caption="Actual vs predicted generation proportion — final 7 days of UNISOLAR test data", width="stretch")
 
         if end_fit_csv.exists():
             end_fit = pd.read_csv(end_fit_csv)
@@ -404,7 +371,7 @@ The system does **not** estimate litres of fuel. Battery efficiency, degradation
                     ].mean().set_index("timestamp")
                 )
                 fit_chart.columns = ["Actual generation proportion", "Predicted generation proportion"]
-                st.line_chart(fit_chart, use_container_width=True)
+                st.line_chart(fit_chart, width="stretch")
 
         if not end_fit_plot.exists() and not end_fit_csv.exists():
             st.info("End-of-dataset fit evidence is not available yet. Run python workflows/train_unisolar_weather_model.py to generate it.")

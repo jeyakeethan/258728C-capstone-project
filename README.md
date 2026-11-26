@@ -32,17 +32,17 @@ The system reports **fuel-backed electrical energy (MWh)**, not litres of fuel. 
 The deployment application uses **MW for power** and **MWh for energy** throughout its live and planning calculations. The configured values are native MW/MWh values. Default deployment configuration:
 
 ```text
-Latitude: 51.5085
-Longitude: -0.12574
-Installed solar capacity: 1500 MW
-Usable battery capacity: 2500 MWh
+Latitude: 6.8741
+Longitude: 79.8605
+Installed solar capacity: 2000 MW
+Usable battery capacity: 1500 MWh
 ```
 
 The historical UNISOLAR preparation files retain the source dataset's original field names/units for reproducibility. The trained solar target is normalized, so deployment predictions are scaled directly by the configured **1500 MW** capacity.
 
 ## Dashboard
 
-The main panel shows the auto-resolved location, weather, **Expected Solar Now**, **Expected Site Load**, and **Current Battery Reserve**. Expected solar is also shown as a percentage of installed solar capacity.
+The main panel shows the auto-resolved location, weather, **Solar Power**, **Site Demand**, and **Battery Reserve**. Solar Power and Site Demand are smooth five-second display values derived from the current model predictions.
 
 For **today**, the simulation starts from the entered current battery reserve and runs from the current time to the end of the day. Consecutive hours where solar plus available battery cannot meet demand are grouped into shortage periods. A warning such as `47 MWh fuel-backed energy required by 13:00` means that 47 MWh of generator-backed electrical energy should be available before the shortage begins at 13:00 and covers that continuous shortage period until forecast supply can meet demand again. Separate shortage periods are not shown cumulatively.
 
@@ -109,14 +109,6 @@ python workflows/train_demand_model.py
 
 The demand workflow keeps Linear Regression as a comparison baseline but explicitly deploys a `HistGradientBoostingRegressor` model. It also writes `models/demand_end_fit.png` and `models/demand_end_fit.csv`, showing actual versus predicted demand for the final seven days of the chronological test partition.
 
-Generate the synthetic solar trace used only for the dashboard's simulated present-power display:
-
-```bash
-python workflows/generate_demo_data.py
-```
-
-This synthetic trace is not a solar forecast model and must not be used as UNISOLAR research data. The dashboard requires the trained UNISOLAR model.
-
 Synthetic demand performance demonstrates the planning workflow; it is **not evidence of real-site demand accuracy**.
 
 ## Run
@@ -140,6 +132,6 @@ If packaged joblib files were created under an incompatible scikit-learn version
 
 ## Dashboard synchronization
 
-The Streamlit dashboard uses a **5-second heartbeat**. Present Solar Power remains a clearly labelled simulated value when inverter telemetry is unavailable. **Expected Site Demand is produced by the trained demand model for the exact current timestamp**, including minute/second information, rather than replaying a row from the historical demand dataset. Present Battery Reserve is an estimated value because no physical battery telemetry is available. **Expected Solar Generation** is the weather-based ML forecast and remains the main live forecasting outcome.
+The Streamlit dashboard uses a **5-second heartbeat**. **Solar Power** uses the weather-based ML forecast from the UNISOLAR model, and **Site Demand is produced by the trained demand model for the exact current timestamp**, including minute/second information, rather than replaying a row from the historical demand dataset. Present Battery Reserve is an estimated value because no physical battery telemetry is available. Demand remains synthetic-origin until measured site demand is available.
 
 All downstream today/fuel-readiness calculations are re-evaluated on each heartbeat. External weather responses and trained model objects are cached independently to avoid unnecessary API/model reloads. Future-day energy balance is still calculated hourly internally and shown only as daily readiness outcomes.
