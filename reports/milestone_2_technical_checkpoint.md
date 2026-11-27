@@ -81,10 +81,10 @@ The association analysis produced the following useful signals:
 | `hour` | 0.008 | 0.019 | 0.402 | Retain through time and cyclical features. |
 | `hour_sin` | -0.091 | -0.046 | 0.330 | Retain; captures the daily cycle continuously. |
 | `hour_cos` | -0.490 | -0.560 | 0.300 | Retain; captures the daily cycle continuously. |
+| `day_of_year` | 0.038 | 0.032 | 0.124 | Retain for annual seasonality. |
 | `RelativeHumidity` | -0.488 | -0.487 | 0.162 | Retain; available from the deployment API. |
 | `AirTemperature` | 0.428 | 0.421 | 0.135 | Retain; available from the deployment API. |
 | `Ghi` | -0.295 | -0.420 | 0.127 | Retain; physically important and API available. |
-| `day_of_year` | 0.038 | 0.032 | 0.124 | Retain for annual seasonality. |
 | `CloudOpacity` | -0.070 | -0.091 | 0.030 | Retain as a deployment compatible cloud proxy. |
 
 The full table is available in [feature_associations.csv](unisolar_eda/feature_associations.csv).
@@ -107,33 +107,37 @@ The selection follows three constraints:
 2. The feature must be available, or have a clearly documented equivalent, at deployment time.
 3. The feature must improve or support generalization under chronological validation.
 
-Wind speed, wind direction, apparent temperature, dew point, identifiers, and site coordinates were not selected for the deployed predictor. Wind variables have substantial missingness in the processed data, and several source variables do not have a direct, consistently mapped Open Meteo deployment input. Site identifiers and coordinates are metadata rather than direct hourly weather predictors.
+Wind speed, wind direction, apparent temperature, dew point, identifiers, and site coordinates were not selected for the deployed predictor. Wind variables have substantial remaining missingness after interpolation, and several source variables do not have a direct, consistently mapped Open Meteo deployment input. Site identifiers and coordinates are metadata rather than direct hourly weather predictors.
 
-The processed missingness evidence is available in [processed_missingness.csv](unisolar_eda/processed_missingness.csv) and [processed_missingness.png](unisolar_eda/processed_missingness.png). The relationship plots are available in [feature_relationships.png](unisolar_eda/feature_relationships.png).
+The processed missingness evidence is available in [processed_missingness.csv](unisolar_eda/processed_missingness.csv). The relationship plots are available in [feature_relationships.png](unisolar_eda/feature_relationships.png).
+
+<div align="center">
+<img src="unisolar_eda/processed_missingness.png" width="90%">
+</div>
 
 ## 4. Data preprocessing
 
 Preprocessing is implemented in [prepare_unisolar.py](../workflows/prepare_unisolar.py).
 
-### 4.1 Generation data
+### 4.1 Solar generation Data (Solar_Generation_sub.csv)
 
 The generation file is loaded and validated for `CampusKey`, `SiteKey`, `Timestamp`, and `SolarGeneration`. The timestamp is parsed and normalized, and `SolarGeneration` is converted to numeric `solar_power`.
 
-### 4.2 Weather data
+### 4.2 Weather data (Weather_data_sub.csv)
 
 Weather records are parsed by timestamp and campus. The weather table is deduplicated by timestamp and campus, then merged with generation using a many to one timestamp/campus relationship.
 
-### 4.3 Irradiance data
+### 4.3 Solar irradiance data (Solar_Irradiance.csv)
 
 The irradiance table is parsed from `Timestamp_UTC`. Campus names are mapped to the UNISOLAR campus keys. `Ghi` and `CloudOpacity` are merged into the generation weather table by timestamp and campus.
 
-### 4.4 Site metadata
+### 4.4 Solar site metadata (Solar_Site_Details.csv)
 
 Site details are joined by `SiteKey`. Installed capacity (`kWp`) is retained so generation can be normalized across capacity. Latitude and longitude are retained as metadata for later deployment/adaptation analysis.
 
 ### 4.5 Missing value handling and canonical output
 
-Dynamic weather and irradiance fields are sorted within each site and linearly interpolated only for short internal gaps, up to the configured 60 minute limit. A `*_was_missing` indicator is retained for each interpolated field. Invalid timestamps and invalid target rows are removed, and duplicate site/timestamp rows are resolved.
+Dynamic weather and irradiance fields are sorted within each site and linearly interpolated only for short internal gaps, up to the configured 60 minute limit. Gaps longer than that limit, and gaps at the start or end of a series, remain missing in the canonical CSV. Invalid timestamps and invalid target rows are removed, and duplicate site/timestamp rows are resolved. Remaining NaNs in the selected weather inputs (`Ghi`, `CloudOpacity`, `AirTemperature`, `RelativeHumidity`) are filled later by `SimpleImputer` in the training pipeline.
 
 The resulting canonical file is [data/processed/unisolar.csv](../data/processed/unisolar.csv). It is the input to the solar model training workflow.
 
@@ -153,7 +157,7 @@ This is a limitation baseline rather than a separate deployed model. It establis
 
 The implemented solution addresses that limitation by supplying future weather forecast values from Open Meteo as model inputs. The trained UNISOLAR model uses the deployment compatible features `Ghi`, `CloudOpacity`, `AirTemperature`, `RelativeHumidity`, and cyclical time features.
 
-The improved predictor is `HistGradientBoostingRegressor`. It can represent nonlinear interactions between irradiance, cloud conditions, temperature, humidity, and cyclical time features. The engineering improvement is therefore the complete weather informed pipeline: feature selection, capacity normalized training target, external forecast inputs, and tuned nonlinear regression.
+The improved predictor is a `HistGradientBoostingRegressor` pipeline with median imputation for values that remain missing after the 60 minute interpolation. It can represent nonlinear interactions between irradiance, cloud conditions, temperature, humidity, and cyclical time features. The engineering improvement is therefore the complete weather informed pipeline: feature selection, capacity normalized training target, external forecast inputs, and tuned nonlinear regression.
 
 The training workflow evaluates 48 HGB parameter combinations on the chronological validation partition. The selected configuration is:
 

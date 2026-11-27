@@ -94,6 +94,29 @@ expected_power_mw = predicted_normalized_solar × configured_site_capacity_mw
 
 Deployment weather uses Open-Meteo mappings: `shortwave_radiation → Ghi`, `cloud_cover → CloudOpacity` proxy, `temperature_2m → AirTemperature`, and `relative_humidity_2m → RelativeHumidity`.
 
+### Solar model features
+
+`prepare_unisolar.py` writes `data/processed/unisolar.csv`. Weather and irradiance gaps are filled with short within-site linear interpolation (default at most 60 minutes). Remaining NaNs are left in place. The processed table currently has:
+
+```text
+timestamp, solar_power, dataset, site_id, campus_id, campus_name,
+site_capacity_kwp, latitude, longitude,
+ApparentTemperature, AirTemperature, DewPointTemperature, RelativeHumidity,
+WindSpeed, WindDirection, CloudOpacity, Ghi
+```
+
+Training (`train_unisolar_weather_model.py`) uses only weather/time predictors that a forecast API can supply. Time features are built from `timestamp` in `add_time_features()`:
+
+| Role | Columns |
+|------|---------|
+| Weather / irradiance | `Ghi`, `CloudOpacity`, `AirTemperature`, `RelativeHumidity` |
+| Time (engineered) | `hour`, `day_of_week`, `day_of_year`, `month`, `hour_sin`, `hour_cos`, `doy_sin`, `doy_cos` |
+| Label | `normalized_solar = solar_power / site_capacity_kwp` |
+
+`site_capacity_kwp` is used to normalize the training target. At deployment the operator supplies installed capacity and the predicted ratio is scaled to power. It is not a model feature.
+
+Kept in the processed CSV but **not** used as predictors: `dataset`, `site_id`, `campus_id`, `campus_name`, `latitude`, `longitude`, `ApparentTemperature`, `DewPointTemperature`, `WindSpeed`, and `WindDirection`. Solar history lags are also excluded so a future hour can be predicted from weather and time only.
+
 ### Solar HGB hyperparameter tuning
 
 The UNISOLAR training script performs a small, reproducible HistGradientBoostingRegressor hyperparameter search using the chronological validation partition only. It searches `learning_rate`, `max_iter`, `max_leaf_nodes`, `min_samples_leaf`, and `l2_regularization`, then evaluates the selected configuration on the untouched chronological test partition. The selected parameters and tuning protocol are written into the solar model metadata JSON.
