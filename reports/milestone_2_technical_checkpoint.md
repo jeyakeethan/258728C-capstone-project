@@ -141,9 +141,30 @@ Dynamic weather and irradiance fields are sorted within each site and linearly i
 
 The resulting canonical file is [data/processed/unisolar.csv](../data/processed/unisolar.csv). It is the input to the solar model training workflow.
 
-### 4.6 Time aware split
+### 4.6 Day Grouped Random Split (70% / 15% / 15%)
 
-The training workflow in [train_unisolar_weather_model.py](../workflows/train_unisolar_weather_model.py) sorts records by timestamp and creates chronological training, validation, and test partitions. All sites at a shared timestamp remain in the same partition. The test partition is not used during hyperparameter selection.
+The training workflow in [train_unisolar_weather_model.py](../workflows/train_unisolar_weather_model.py) partitions the dataset by whole calendar days into **70% Training**, **15% Validation**, and **15% Test** sets using a reproducible day grouped random split:
+
+1. Valid solar generation records are sorted chronologically and grouped by calendar date.
+2. First, 15% of whole calendar days are held out as an untouched test set.
+3. Next, the remaining 85% of days are split into the training set (70% of all days) and validation set (15% of all days) using a fixed random seed for reproducibility.
+
+#### Rationale for Day Grouped Splitting
+
+1. **Full Annual Seasonal Coverage:** Because the processed UNISOLAR dataset covers a single calendar year (January to December 2021, spanning 359 unique days), holding out a contiguous block at the end of the year would exclude late autumn and early winter solar angles and seasonal weather conditions from model training. Sampling whole days across the entire year ensures that all 12 months are represented in the training, validation, and test partitions.
+2. **Alignment with Weather Driven Estimation:** The solar model predicts instantaneous generation from sun position geometry (time of day and day of year) and concurrent weather conditions rather than past generation lags, making full year seasonal coverage essential for generalization.
+3. **Prevention of Intra Day and Cross Site Leakage:** Grouping by calendar date guarantees that all sites sharing a timestamp and all consecutive 15 minute intervals within the same day remain together in a single partition. This prevents the model from interpolating neighboring intra day readings or leaking concurrent site observations across partitions.
+
+#### Partition Summary
+
+| Partition | Grouping Rule | Target Share | Unique Days | Months Covered | Records (Actual Share) | Date Span |
+|---|---|---:|---:|---:|---:|---|
+| Training | Randomly sampled whole days (seed 42) | 70% | 251 | 12 | 11,148 (69.87%) | 2021-01-01 to 2021-12-31 |
+| Validation | Randomly sampled whole days (seed 42) | 15% | 54 | 12 | 2,430 (15.23%) | 2021-01-08 to 2021-12-17 |
+| Test | Held out whole days (seed 42) | 15% | 54 | 12 | 2,377 (14.90%) | 2021-01-06 to 2021-12-28 |
+| **Total** | **All calendar days grouped across splits** | **100%** | **359** | **12** | **15,955 (100.00%)** | **2021-01-01 to 2021-12-31** |
+
+Hyperparameter selection uses only the training and validation partitions. Once the best configuration is selected, the model is refit on the combined training and validation data (85%, 305 days / 13,578 records) and evaluated once on the held out test partition.
 
 ## 5. Baseline and improved method
 
@@ -212,9 +233,7 @@ Retrieved 2026-11-27, License - CC BY-SA 4.0
 
 The diagram separates research data preparation from deployment inputs. Historical UNISOLAR files train and evaluate the solar model. Open Meteo supplies future weather at inference time. The supporting demand model supplies site demand estimates, and the planning layer converts both predictions into battery and fuel readiness outcomes.
 
-The same diagram is available as a standalone Mermaid source file at [system_architecture.mmd](system_architecture.mmd) for rendering to SVG or PNG before PDF export.
-
-For a more detailed drawing specification, see [architecture_diagram_brief.md](architecture_diagram_brief.md). It lists the required elements, labels, flows, boundaries, and exclusions for recreating the diagram with another drawing tool or AI system.
+The same diagram is available as a standalone Mermaid source file at [high_level_architecture.jpg](high_level_architecture.jpg).
 
 ## 8. Limitations and trade offs
 
