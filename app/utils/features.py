@@ -105,9 +105,8 @@ def model_feature_columns(df: pd.DataFrame, dataset_name: str):
     if allowed is None:
         return numeric_feature_columns(df)
     exogenous = [c for c in allowed if c in df.columns]
-    missing_flags = [f"{c}_was_missing" for c in exogenous if f"{c}_was_missing" in df.columns]
     history = engineered_history_columns()
-    selected = exogenous + missing_flags + [c for c in TIME_FEATURES if c in df.columns] + [
+    selected = exogenous + [c for c in TIME_FEATURES if c in df.columns] + [
         c for c in history if c in df.columns
     ]
     return list(dict.fromkeys(

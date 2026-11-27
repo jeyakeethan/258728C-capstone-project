@@ -8,8 +8,10 @@ data/processed/*.csv
 models/*
 !models/.gitkeep
 
-reports/figures/*
-!reports/figures/.gitkeep
-!reports/figures/unisolar_eda/
-!reports/figures/unisolar_eda/**
+reports/*
+!reports/.gitkeep
+!reports/milestone_2_technical_checkpoint.md
+!reports/high_level_architecture.jpg
+!reports/unisolar_eda/
+!reports/unisolar_eda/**
 

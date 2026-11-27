@@ -3,8 +3,7 @@
 ## Weather based solar prediction and energy risk planning system
 
 **Student:** Jeyaganeshan J. 258728C  
-**Project repository:** [GitHub repository](https://github.com/jeyakeethan/258728C-capstone-project.git)  
-**Submission:** Milestone 2 Technical Checkpoint  
+**Project repository:** [GitHub Repository](https://github.com/jeyakeethan/258728C-capstone-project.git)
 
 ## 1. Project scope and purpose
 
@@ -18,6 +17,8 @@ The operational question is:
 
 ## 2. UNISOLAR data sources
 
+**Dataset repository:** [Unisolar Dataset Repository](https://github.com/CDAC-lab/UNISOLAR)
+
 The exploratory analysis uses only the four UNISOLAR source files. The synthetic demand dataset and the retired demo solar trace are excluded from this analysis.
 
 | Source file | Role in the project | Main use |
@@ -27,7 +28,7 @@ The exploratory analysis uses only the four UNISOLAR source files. The synthetic
 | `Solar_Irradiance.csv` | Historical irradiance observations | Provides `Ghi` and `CloudOpacity`, the most deployment relevant radiation/cloud variables. |
 | `Solar_Site_Details.csv` | Site metadata | Provides installed capacity (`kWp`) and location metadata. |
 
-The reproducible file level summary is generated at [raw_file_summary.csv](figures/unisolar_eda/raw_file_summary.csv).
+The reproducible file level summary is generated at [raw_file_summary.csv](unisolar_eda/raw_file_summary.csv).
 
 Current analysis facts:
 
@@ -56,18 +57,20 @@ The EDA is reproducible through [eda_unisolar.py](../analysis/eda_unisolar.py). 
 8. Produces hourly and monthly generation profiles.
 9. Produces target distribution, feature relationship, and missingness figures.
 
-The generated outputs are stored in [reports/figures/unisolar_eda](figures/unisolar_eda).
+The generated outputs are stored in [reports/unisolar_eda](unisolar_eda).
 
 ### 3.2 Target behaviour
 
 The target varies strongly by time of day. The generated hourly profile shows low generation in the early morning, a broad daytime maximum, and a decline toward the evening. This supports using hour and cyclical daily features.
 
-The target also changes across months, so annual calendar features are retained. The hourly and monthly summaries are available in:
+The target also changes across months, so annual calendar features are retained.
+Solar generation by hour            |  Solar distribution
+:-------------------------:|:-------------------------:
+![](unisolar_eda/solar_generation_by_hour.png)  |  ![](unisolar_eda/solar_generation_distribution.png)
 
-- [hourly_profile.csv](figures/unisolar_eda/hourly_profile.csv)
-- [monthly_profile.csv](figures/unisolar_eda/monthly_profile.csv)
-- [solar_generation_by_hour.png](figures/unisolar_eda/solar_generation_by_hour.png)
-- [solar_generation_distribution.png](figures/unisolar_eda/solar_generation_distribution.png)
+The hourly and monthly summaries are available in:
+- [hourly_profile.csv](unisolar_eda/hourly_profile.csv)
+- [monthly_profile.csv](unisolar_eda/monthly_profile.csv)
 
 ### 3.3 Feature relationships
 
@@ -84,7 +87,7 @@ The association analysis produced the following useful signals:
 | `day_of_year` | 0.038 | 0.032 | 0.124 | Retain for annual seasonality. |
 | `CloudOpacity` | -0.070 | -0.091 | 0.030 | Retain as a deployment compatible cloud proxy. |
 
-The full table is available in [feature_associations.csv](figures/unisolar_eda/feature_associations.csv).
+The full table is available in [feature_associations.csv](unisolar_eda/feature_associations.csv).
 
 The correlation signs should not be interpreted as causal effects. Solar generation is strongly affected by the interaction between irradiance, time of day, cloud conditions, and seasonal position. Mutual information and model validation are therefore used alongside simple correlation statistics.
 
@@ -106,7 +109,7 @@ The selection follows three constraints:
 
 Wind speed, wind direction, apparent temperature, dew point, identifiers, and site coordinates were not selected for the deployed predictor. Wind variables have substantial missingness in the processed data, and several source variables do not have a direct, consistently mapped Open Meteo deployment input. Site identifiers and coordinates are metadata rather than direct hourly weather predictors.
 
-The processed missingness evidence is available in [processed_missingness.csv](figures/unisolar_eda/processed_missingness.csv) and [processed_missingness.png](figures/unisolar_eda/processed_missingness.png). The relationship plots are available in [feature_relationships.png](figures/unisolar_eda/feature_relationships.png).
+The processed missingness evidence is available in [processed_missingness.csv](unisolar_eda/processed_missingness.csv) and [processed_missingness.png](unisolar_eda/processed_missingness.png). The relationship plots are available in [feature_relationships.png](unisolar_eda/feature_relationships.png).
 
 ## 4. Data preprocessing
 
@@ -195,43 +198,13 @@ The external API is a deployment input, not the training dataset. The model was 
 
 ## 7. System architecture
 
-```mermaid
-flowchart LR
-    subgraph U[UNISOLAR source data]
-        G[Solar_Generation_sub.csv\nTarget: SolarGeneration]
-        W[Weather_data_sub.csv\nHistorical weather]
-        I[Solar_Irradiance.csv\nGhi and CloudOpacity]
-        S[Solar_Site_Details.csv\nCapacity and location metadata]
-    end
+<!--
+Source - https://stackoverflow.com/q/41604263
+Posted by zjffdu, modified by community. See post 'Timeline' for change history
+Retrieved 2026-11-27, License - CC BY-SA 4.0
+-->
 
-    E[Exploratory analysis\nmissingness, profiles, associations, feature selection]
-    P[Preprocessing\nparse, merge, deduplicate, interpolate short gaps, add flags]
-    C[Canonical unisolar.csv\nnormalized_solar target]
-
-    subgraph M[Forecasting and planning system]
-        B[Historical only alternative\nlimited without future weather]
-        H[HistGradientBoostingRegressor\nimproved solar predictor]
-        D[Synthetic demand HGB\nsupporting site demand estimate]
-        X[Hourly energy balance\nsolar + demand + battery + fuel]
-        V[Streamlit dashboard\nreadiness warnings]
-    end
-
-    API[Open Meteo hourly forecast API\nGHI, cloud, temperature, humidity]
-
-    G --> E
-    W --> E
-    I --> E
-    S --> E
-    E --> P
-    P --> C
-    C --> B
-    C --> H
-    API --> H
-    API --> X
-    H --> X
-    D --> X
-    X --> V
-```
+![image](high_level_architecture.jpg)
 
 The diagram separates research data preparation from deployment inputs. Historical UNISOLAR files train and evaluate the solar model. Open Meteo supplies future weather at inference time. The supporting demand model supplies site demand estimates, and the planning layer converts both predictions into battery and fuel readiness outcomes.
 

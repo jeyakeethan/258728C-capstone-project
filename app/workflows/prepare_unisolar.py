@@ -30,9 +30,7 @@ def _interpolate_one_site(group: pd.DataFrame, columns, limit_steps: int) -> pd.
     for col in columns:
         if col not in out.columns:
             continue
-        missing = out[col].isna()
         out[col] = out[col].interpolate(method="linear", limit=limit_steps, limit_area="inside")
-        out[f"{col}_was_missing"] = missing.astype("int8")
     return out
 
 
@@ -136,7 +134,6 @@ def prepare(raw_dir: Path, out_path: Path, site_key=None, max_interp_minutes=60)
         "site_capacity_kwp", "latitude", "longitude",
     ]
     ordered += [c for c in weather_features + irr_features if c in out.columns]
-    ordered += [f"{c}_was_missing" for c in dynamic_cols if f"{c}_was_missing" in out.columns]
     out = out[[c for c in ordered if c in out.columns]].sort_values(["timestamp", "site_id"])
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -220,7 +220,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run UNISOLAR-only exploratory analysis.")
     parser.add_argument("--raw", type=Path, default=ROOT / "data/raw/unisolar")
     parser.add_argument("--processed", type=Path, default=ROOT / "data/processed/unisolar.csv")
-    parser.add_argument("--out", type=Path, default=ROOT / "reports/figures/unisolar_eda")
+    parser.add_argument("--out", type=Path, default=ROOT / "reports/unisolar_eda")
     parser.add_argument("--refresh-processed", action="store_true")
     args = parser.parse_args()
 
