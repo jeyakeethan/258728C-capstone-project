@@ -38,7 +38,7 @@ Installed solar capacity: 2000 MW
 Usable battery capacity: 1500 MWh
 ```
 
-The historical UNISOLAR preparation files retain the source dataset's original field names/units for reproducibility. The trained solar target is normalized, so deployment predictions are scaled directly by the configured **2000 MW** capacity.
+The historical UNISOLAR preparation files retain the source dataset's original field names/units for reproducibility. The trained solar target is normalized, so deployment predictions are scaled directly by the configured **2000 MW** capacity. Because UNISOLAR is an Australian dataset (four seasons, 6–8 PM sunset), it is used here as an initial conceptual baseline and is adaptable to Sri Lanka or other target locations once local site data is collected for retraining.
 
 ## Dashboard
 
@@ -147,7 +147,7 @@ If packaged joblib files were created under an incompatible scikit-learn version
 
 - Installed solar peak capacity may exceed site peak demand, but weather and time-of-day can still reduce available solar below demand.
 - Future weather is forecast rather than observed, so weather forecast error propagates into solar estimates.
-- UNISOLAR is geographically limited; transfer to other regions requires separate validation.
+- UNISOLAR is an Australian dataset (four seasons, 6–8 PM sunset) and cannot be applied directly to Sri Lanka; it serves as an initial conceptual baseline that can be adapted by retraining with locally collected site data.
 - API cloud cover is a proxy for the UNISOLAR cloud variable.
 - Forecast battery state is carried continuously across day boundaries; today begins from the synchronized estimated present reserve.
 - Battery efficiency, degradation, minimum state of charge and charge/discharge power limits are not modelled.

@@ -16,14 +16,6 @@ WindSpeed,8344,0.5229708555311815
 WindDirection,8344,0.5229708555311815
 CloudOpacity,160,0.010028204324663115
 Ghi,160,0.010028204324663115
-ApparentTemperature_was_missing,0,0.0
-AirTemperature_was_missing,0,0.0
-DewPointTemperature_was_missing,0,0.0
-RelativeHumidity_was_missing,0,0.0
-WindSpeed_was_missing,0,0.0
-WindDirection_was_missing,0,0.0
-CloudOpacity_was_missing,0,0.0
-Ghi_was_missing,0,0.0
 hour,0,0.0
 day_of_week,0,0.0
 day_of_year,0,0.0

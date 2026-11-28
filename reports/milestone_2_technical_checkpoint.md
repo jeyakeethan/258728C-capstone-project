@@ -3,7 +3,21 @@
 ## Weather based solar prediction and energy risk planning system
 
 **Student:** Jeyaganeshan J. 258728C  
-**Project repository:** [GitHub Repository](https://github.com/jeyakeethan/258728C-capstone-project.git)
+**Project repository:** [GitHub Repository](https://github.com/jeyakeethan/258728C-capstone-project.git)    
+**Note:** Screenshots of the running dashboard attached at the end of the document 
+
+
+## Content
+
+#### 1. Project scope and purpose
+#### 2. UNISOLAR data sources
+#### 3. Exploratory Data Analysis
+#### 4. Data preprocessing
+#### 5. Baseline and improved method
+#### 6. Deployment weather and prediction flow
+#### 7. System architecture
+#### 8. Limitations and trade offs
+#### 9. Reproducible evidence commands
 
 ## 1. Project scope and purpose
 
@@ -14,6 +28,8 @@ The main prediction contribution in this milestone is the UNISOLAR solar generat
 The operational question is:
 
 > Given a weather forecast and installed PV capacity, how much solar generation is expected, and when might the site require fuel backed electrical energy after solar and battery supply are considered?
+
+**Scope limitation:** The UNISOLAR dataset originates from Australia, which experiences four distinct seasons and later solar sunset patterns, for example 6 PM and 8 PM during summer. Accordingly, the trained model cannot be applied directly to Sri Lanka without local data collection and retraining, and serves here as a conceptual solution demonstrating the forecasting and energy planning workflow.
 
 ## 2. UNISOLAR data sources
 
@@ -28,7 +44,7 @@ The exploratory analysis uses only the four UNISOLAR source files. The synthetic
 | `Solar_Irradiance.csv` | Historical irradiance observations | Provides `Ghi` and `CloudOpacity`, the most deployment relevant radiation/cloud variables. |
 | `Solar_Site_Details.csv` | Site metadata | Provides installed capacity (`kWp`) and location metadata. |
 
-The reproducible file level summary is generated at [raw_file_summary.csv](unisolar_eda/raw_file_summary.csv).
+The reproducible file level summary is available at [raw_file_summary.csv](unisolar_eda/raw_file_summary.csv).
 
 Current analysis facts:
 
@@ -58,6 +74,8 @@ The EDA is reproducible through [eda_unisolar.py](../analysis/eda_unisolar.py). 
 9. Produces target distribution, feature relationship, and missingness figures.
 
 The generated outputs are stored in [reports/unisolar_eda](unisolar_eda).
+
+![](unisolar_eda/feature_relationships.png)
 
 ### 3.2 Target behaviour
 
@@ -260,20 +278,3 @@ Prepare and train the solar model:
 .venv\Scripts\python.exe workflows\prepare_unisolar.py
 .venv\Scripts\python.exe workflows\train_unisolar_weather_model.py
 ```
-
-The Milestone 2 PDF should embed the generated EDA figures and model comparison table. The code link and demo video are separate submission items.
-
-## 10. Milestone 2 completion checklist
-
-- [x] UNISOLAR source file inventory and preprocessing workflow.
-- [x] Reproducible UNISOLAR EDA script.
-- [x] Feature association and feature selection evidence.
-- [x] Chronological train/validation/test split.
-- [x] Historical only baseline limitation documented.
-- [x] Weather informed tuned HGB method implemented.
-- [x] Final weather informed HGB test metrics.
-- [x] Architecture diagram.
-- [ ] Export this Markdown file to PDF.
-- [ ] Add final screenshots of the running dashboard.
-- [ ] Submit code/system link separately.
-- [ ] Submit the maximum six minute demo video separately.

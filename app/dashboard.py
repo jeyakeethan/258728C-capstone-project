@@ -257,8 +257,14 @@ def render_synchronized_dashboard():
             hourly["Time"] = pd.to_datetime(hourly["Time"]).dt.strftime("%H:%M")
             for c in hourly.columns[1:]:
                 hourly[c] = (hourly[c]).round(3)
+            left_align_config = {
+                col: st.column_config.Column(alignment="left")
+                for col in hourly.columns
+            }
+
             st.dataframe(
                 hourly,
+                column_config=left_align_config,
                 width="stretch",
                 hide_index=True,
                 alt="Today's hourly solar, demand, battery, and fuel calculation",
